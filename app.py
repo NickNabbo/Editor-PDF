@@ -1,37 +1,45 @@
 import streamlit as st
-import fitz  # È il nome tecnico della libreria PyMuPDF
-import io
+from pypdf import PdfReader
+from fpdf import FPDF
 
-st.set_page_config(page_title="Censura PDF", page_icon="🕵️‍♂️")
-st.title("Oscura Testo nei PDF")
-st.write("Cerca una parola nel documento e coprila con un rettangolo nero in modo permanente.")
+st.set_page_config(page_title="Editor PDF Libero", page_icon="📝")
+st.title("Modifica il testo del tuo PDF")
 
-uploaded_file = st.file_uploader("Carica il tuo PDF", type="pdf")
-parola_da_cercare = st.text_input("Quale parola vuoi oscurare?")
+# 1. Caricamento del file
+uploaded_file = st.file_uploader("Carica il tuo file PDF", type="pdf")
 
-if uploaded_file and parola_da_cercare:
-    if st.button("Applica Modifiche"):
-        # 1. Legge il file caricato
-        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+if uploaded_file is not None:
+    # 2. Estrazione del testo dal PDF
+    reader = PdfReader(uploaded_file)
+    testo_originale = ""
+    for page in reader.pages:
+        estratto = page.extract_text()
+        if estratto:
+            testo_originale += estratto + "\n"
+    
+    st.info("Testo estratto con successo! Modificalo nel riquadro sottostante.")
+    
+    # 3. L'Editor dove puoi modificare liberamente le parole
+    testo_modificato = st.text_area("Testo del documento", value=testo_originale, height=400)
+
+    # 4. Creazione e salvataggio del nuovo PDF
+    if st.button("Genera il nuovo PDF aggiornato"):
+        # Usiamo FPDF per creare il nuovo documento da zero
+        pdf = FPDF()
+        pdf.add_page()
         
-        # 2. Scansiona le pagine
-        for pagina in doc:
-            # Trova le coordinate della parola
-            aree_trovate = pagina.search_for(parola_da_cercare)
-            for area in aree_trovate:
-                # Disegna un rettangolo nero (0,0,0) sulle coordinate
-                pagina.add_redact_annot(area, fill=(0, 0, 0))
-            
-            # Applica la censura alla pagina
-            pagina.apply_redactions()
+        # Impostiamo il font (Arial)
+        pdf.set_font("helvetica", size=11)
         
-        # 3. Salva il nuovo documento in memoria
-        pdf_bytes = doc.write()
+        # Inseriamo il testo modificato, che si impaginerà automaticamente
+        pdf.multi_cell(0, 5, text=testo_modificato)
         
-        st.success("Elaborazione completata!")
+        st.success("Il tuo nuovo PDF è pronto!")
+        
+        # Pulsante di download
         st.download_button(
             label="📥 Scarica PDF Modificato",
-            data=pdf_bytes,
-            file_name="pdf_oscurato.pdf",
+            data=bytes(pdf.output()),
+            file_name="nuovo_documento.pdf",
             mime="application/pdf"
         )
