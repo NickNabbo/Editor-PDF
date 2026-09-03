@@ -1,56 +1,45 @@
 import streamlit as st
-from pypdf import PdfReader
-from fpdf import FPDF
+from pdf2docx import Converter
+import tempfile
+import os
 
-st.set_page_config(page_title="Editor PDF Libero", page_icon="📝")
-st.title("Modifica il testo del tuo PDF")
+st.set_page_config(page_title="Convertitore PDF-Word", page_icon="🔄")
+st.title("Converti per Modificare")
+st.write("Questo strumento trasforma il tuo PDF in un file Word mantenendo grafica, immagini e layout. Potrai modificare il testo comodamente e poi risalvarlo in PDF.")
 
-# 1. Caricamento del file
+# Caricamento del file
 uploaded_file = st.file_uploader("Carica il tuo file PDF", type="pdf")
 
 if uploaded_file is not None:
-    # 2. Estrazione del testo dal PDF
-    reader = PdfReader(uploaded_file)
-    testo_originale = ""
-    for page in reader.pages:
-        estratto = page.extract_text()
-        if estratto:
-            testo_originale += estratto + "\n"
-    
-    st.info("Testo estratto con successo! Modificalo nel riquadro sottostante.")
-    
-    # 3. L'Editor dove puoi modificare liberamente le parole
-    testo_modificato = st.text_area("Testo del documento", value=testo_originale, height=400)
-
-    # 4. Creazione e salvataggio del nuovo PDF
-    if st.button("Genera il nuovo PDF aggiornato"):
-        
-        # --- NUOVA FASE: PULIZIA DEL TESTO ---
-        # Sostituiamo i caratteri speciali tipografici con quelli standard
-        testo_pulito = testo_modificato.replace('’', "'").replace('‘', "'")
-        testo_pulito = testo_pulito.replace('“', '"').replace('”', '"')
-        testo_pulito = testo_pulito.replace('–', '-').replace('—', '-')
-        testo_pulito = testo_pulito.replace('•', '-')
-        
-        # Forziamo la codifica per ignorare eventuali altri simboli strani (es. emoji)
-        # Sostituirà i caratteri non supportati con un "?" per evitare il crash
-        testo_sicuro = testo_pulito.encode('windows-1252', 'replace').decode('windows-1252')
-        # -------------------------------------
-
-        # Usiamo FPDF per creare il nuovo documento
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("helvetica", size=11)
-        
-        # Inseriamo il testo "sicuro"
-        pdf.multi_cell(0, 5, text=testo_sicuro)
-        
-        st.success("Il tuo nuovo PDF è pronto!")
-        
-        # Pulsante di download
-        st.download_button(
-            label="📥 Scarica PDF Modificato",
-            data=bytes(pdf.output()),
-            file_name="nuovo_documento.pdf",
-            mime="application/pdf"
-        )
+    if st.button("Converti in formato Word"):
+        with st.spinner("Conversione in corso... (mantenimento layout e immagini)"):
+            
+            # Salviamo il PDF caricato in un file temporaneo di sistema
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+                temp_pdf.write(uploaded_file.getvalue())
+                pdf_path = temp_pdf.name
+            
+            # Prepariamo il percorso per il file Word in uscita
+            docx_path = pdf_path.replace(".pdf", ".docx")
+            
+            try:
+                # Eseguiamo la conversione complessa
+                cv = Converter(pdf_path)
+                cv.convert(docx_path)
+                cv.close()
+                
+                # Rendiamo disponibile il download
+                with open(docx_path, "rb") as docx_file:
+                    st.success("Conversione completata con successo!")
+                    st.download_button(
+                        label="📥 Scarica il documento Word",
+                        data=docx_file,
+                        file_name="documento_modificabile.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+            except Exception as e:
+                st.error(f"Si è verificato un errore durante la conversione: {e}")
+            finally:
+                # Pulizia della memoria
+                if os.path.exists(pdf_path): os.remove(pdf_path)
+                if os.path.exists(docx_path): os.remove(docx_path)
