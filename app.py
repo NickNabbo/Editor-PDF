@@ -24,15 +24,26 @@ if uploaded_file is not None:
 
     # 4. Creazione e salvataggio del nuovo PDF
     if st.button("Genera il nuovo PDF aggiornato"):
-        # Usiamo FPDF per creare il nuovo documento da zero
+        
+        # --- NUOVA FASE: PULIZIA DEL TESTO ---
+        # Sostituiamo i caratteri speciali tipografici con quelli standard
+        testo_pulito = testo_modificato.replace('’', "'").replace('‘', "'")
+        testo_pulito = testo_pulito.replace('“', '"').replace('”', '"')
+        testo_pulito = testo_pulito.replace('–', '-').replace('—', '-')
+        testo_pulito = testo_pulito.replace('•', '-')
+        
+        # Forziamo la codifica per ignorare eventuali altri simboli strani (es. emoji)
+        # Sostituirà i caratteri non supportati con un "?" per evitare il crash
+        testo_sicuro = testo_pulito.encode('windows-1252', 'replace').decode('windows-1252')
+        # -------------------------------------
+
+        # Usiamo FPDF per creare il nuovo documento
         pdf = FPDF()
         pdf.add_page()
-        
-        # Impostiamo il font (Arial)
         pdf.set_font("helvetica", size=11)
         
-        # Inseriamo il testo modificato, che si impaginerà automaticamente
-        pdf.multi_cell(0, 5, text=testo_modificato)
+        # Inseriamo il testo "sicuro"
+        pdf.multi_cell(0, 5, text=testo_sicuro)
         
         st.success("Il tuo nuovo PDF è pronto!")
         
